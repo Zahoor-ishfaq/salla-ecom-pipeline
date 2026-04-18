@@ -78,7 +78,9 @@ resources:
       continuous: false
       libraries:
         - notebook:
-            path: ./gold-layer/transformations/gold_aggregations.py
+            path: ./gold-layer/transformations/gold_dimensions.py
+        - notebook:
+            path: ./gold-layer/transformations/gold_facts.py
       configuration:
         "pipeline.silver_schema": "${var.catalog}.${var.silver_schema}"
 
