@@ -1,0 +1,132 @@
+# ============================================================================
+# Salla E-Commerce Pipeline — Databricks Asset Bundle
+# ============================================================================
+# Deploy:  databricks bundle deploy --target dev
+# Run:     databricks bundle run salla_orchestration --target dev
+# Destroy: databricks bundle destroy --target dev
+# ============================================================================
+
+bundle:
+  name: salla-ecommerce-pipeline
+
+# ---------------------------------------------------------------------------
+# Variables — override per target for environment isolation
+# ---------------------------------------------------------------------------
+variables:
+  catalog:
+    default: salla_databricks
+  bronze_schema:
+    default: bronze
+  silver_schema:
+    default: silver
+  gold_schema:
+    default: gold
+  schedule_pause_status:
+    default: PAUSED
+
+# ---------------------------------------------------------------------------
+# Workspace settings
+# ---------------------------------------------------------------------------
+workspace:
+  root_path: /Users/${workspace.current_user.userName}/Salla-datapipeline
+
+# ---------------------------------------------------------------------------
+# Resources
+# ---------------------------------------------------------------------------
+resources:
+
+  # ── Bronze Pipeline ────────────────────────────────────────────────────
+  pipelines:
+    bronze_pipeline:
+      name: Salla_Bronze_Pipeline
+      catalog: ${var.catalog}
+      target: ${var.bronze_schema}
+      serverless: true
+      channel: PREVIEW
+      continuous: false
+      libraries:
+        - notebook:
+            path: ./bronze-layer/transformations/bronze_postgresql.py
+        - notebook:
+            path: ./bronze-layer/transformations/bronze_landing_zone.py
+      configuration:
+        "spark.hadoop.fs.azure.account.key.salaborationstorage.dfs.core.windows.net": "{{secrets/databricks-secrets/adls-storage-key}}"
+
+  # ── Silver Pipeline ────────────────────────────────────────────────────
+    silver_pipeline:
+      name: Salla_Silver_Pipeline
+      catalog: ${var.catalog}
+      target: ${var.silver_schema}
+      serverless: true
+      channel: PREVIEW
+      continuous: false
+      libraries:
+        - notebook:
+            path: ./silver-layer/transformations/silver_postgresql.py
+        - notebook:
+            path: ./silver-layer/transformations/silver_landing_zone.py
+      configuration:
+        "pipeline.bronze_schema": "${var.catalog}.${var.bronze_schema}"
+
+  # ── Gold Pipeline ──────────────────────────────────────────────────────
+    gold_pipeline:
+      name: Salla_Gold_Pipeline
+      catalog: ${var.catalog}
+      target: ${var.gold_schema}
+      serverless: true
+      channel: PREVIEW
+      continuous: false
+      libraries:
+        - notebook:
+            path: ./gold-layer/transformations/gold_aggregations.py
+      configuration:
+        "pipeline.silver_schema": "${var.catalog}.${var.silver_schema}"
+
+  # ── Orchestration Job ──────────────────────────────────────────────────
+  jobs:
+    salla_orchestration:
+      name: Salla E-Commerce Pipeline Orchestration
+      schedule:
+        quartz_cron_expression: "0 0 6 * * ?"
+        timezone_id: UTC
+        pause_status: ${var.schedule_pause_status}
+      tasks:
+        - task_key: bronze_ingestion
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.bronze_pipeline.id}
+            full_refresh: false
+
+        - task_key: silver_transformation
+          depends_on:
+            - task_key: bronze_ingestion
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.silver_pipeline.id}
+            full_refresh: false
+
+        - task_key: gold_aggregation
+          depends_on:
+            - task_key: silver_transformation
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.gold_pipeline.id}
+            full_refresh: false
+
+# ---------------------------------------------------------------------------
+# Targets — environment-specific overrides
+# ---------------------------------------------------------------------------
+targets:
+
+  dev:
+    default: true
+    mode: development
+    variables:
+      catalog: salla_databricks
+      schedule_pause_status: PAUSED
+
+  prod:
+    mode: production
+    variables:
+      catalog: salla_databricks
+      schedule_pause_status: UNPAUSED
+    # In production, override with a prod catalog:
+    # variables:
+    #   catalog: salla_prod
