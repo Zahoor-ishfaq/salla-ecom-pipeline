@@ -22,3 +22,6 @@ Thumbs.db
 # Temporary / generated
 *.tmp
 *.log
+
+# Data generators (utility scripts, not pipeline code)
+sources/
