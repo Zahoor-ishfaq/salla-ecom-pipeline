@@ -17,41 +17,46 @@
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                         DATA SOURCES                                    │
 │                                                                         │
-│   Azure PostgreSQL (8 tables)          UC Volume Landing Zone           │
-│   ├── customers (9,952)                ├── ad_spend (CSV)               │
-│   ├── products (40)                    ├── competitor_pricing (CSV)     │
-│   ├── stores (46)                      ├── exchange_rates (JSON)        │
-│   ├── sales_orders (1.4M)             └── payment_settlements (CSV)    │
-│   ├── payment_transactions (1.4M)                                       │
-│   ├── shipping_details (1.4M)          12 Synthetic Data Generators     │
-│   ├── inventory_movements (548K)       └── CSV / JSON / Parquet         │
-│   └── product_reviews (90K)                                             │
+│   Azure PostgreSQL (8 tables)          UC Volume Landing Zone (12)      │
+│   ├── customers (9,952)                CSV: ad_spend, competitor_       │
+│   ├── products (40)                     pricing, payment_settlements,   │
+│   ├── stores (46)                       supplier_invoices, return_      │
+│   ├── sales_orders (1.4M)               requests, shipping_manifests   │
+│   ├── payment_transactions (1.4M)      JSON: exchange_rates,           │
+│   ├── shipping_details (1.4M)           clickstream, social_media,     │
+│   ├── inventory_movements (548K)        push_notifications             │
+│   └── product_reviews (90K)            Parquet: customer_segmentation, │
+│                                         demand_forecasts               │
 └──────────────┬──────────────────────────────────┬───────────────────────┘
                │ JDBC                             │ Auto Loader
                ▼                                  ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│  🥉 BRONZE LAYER (salla_databricks.bronze) — 12 tables                  │
+│  🥉 BRONZE LAYER (salla_databricks.bronze) — 20 tables                  │
 │                                                                         │
 │  bronze_postgresql.py          │  bronze_landing_zone.py                │
-│  8 Materialized Views          │  4 Streaming Tables                    │
-│  ├── bronze_customers          │  ├── bronze_ad_spend                   │
-│  ├── bronze_products           │  ├── bronze_competitor_pricing         │
-│  ├── bronze_stores             │  ├── bronze_exchange_rates             │
-│  ├── bronze_sales_orders       │  └── bronze_payment_settlements        │
-│  ├── bronze_payment_txns       │                                        │
-│  ├── bronze_shipping_details   │  + Metadata: _bronze_timestamp,        │
-│  ├── bronze_inventory_mvmts    │    _source_system, _source_file        │
-│  └── bronze_product_reviews    │                                        │
+│  8 Materialized Views          │  12 Streaming Tables                   │
+│  ├── bronze_customers          │  ├── bronze_ad_spend (CSV)             │
+│  ├── bronze_products           │  ├── bronze_competitor_pricing (CSV)   │
+│  ├── bronze_stores             │  ├── bronze_payment_settlements (CSV)  │
+│  ├── bronze_sales_orders       │  ├── bronze_supplier_invoices (CSV)    │
+│  ├── bronze_payment_txns       │  ├── bronze_return_requests (CSV)      │
+│  ├── bronze_shipping_details   │  ├── bronze_shipping_manifests (CSV)   │
+│  ├── bronze_inventory_mvmts    │  ├── bronze_exchange_rates (JSON)      │
+│  └── bronze_product_reviews    │  ├── bronze_clickstream (JSON)         │
+│                                │  ├── bronze_social_media (JSON)        │
+│  + Metadata: _bronze_timestamp │  ├── bronze_push_notifications (JSON)  │
+│    _source_system, _source_file│  ├── bronze_customer_segmentation (P)  │
+│                                │  └── bronze_demand_forecasts (P)       │
 └──────────────────────────┬──────────────────────────────────────────────┘
                            │
                            ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│  🥈 SILVER LAYER (salla_databricks.silver) — 12 tables                  │
+│  🥈 SILVER LAYER (salla_databricks.silver) — 20 tables                  │
 │                                                                         │
 │  silver_postgresql.py          │  silver_landing_zone.py                │
-│  8 Materialized Views          │  4 Streaming Tables                    │
+│  8 Materialized Views          │  12 Streaming Tables                   │
 │                                │                                        │
-│  ✓ 65+ Data Quality Rules      ✓ String Normalization                  │
+│  ✓ 141 Data Quality Rules       ✓ String Normalization                 │
 │  ✓ Quarantine Pattern           ✓ Deduplication (watermark-based)      │
 │  ✓ FK Validation                ✓ Type Casting & Date Validation       │
 │  ✓ Business Logic Checks        ✓ Rescued Data Filtering               │
@@ -120,46 +125,44 @@ salla-ecom-pipeline/
 ├── bronze-layer/
 │   └── transformations/
 │       ├── bronze_postgresql.py        # 8 MVs — JDBC ingestion from PostgreSQL
-│       └── bronze_landing_zone.py      # 4 streaming tables — Auto Loader from UC Volume
+│       └── bronze_landing_zone.py      # 12 streaming tables — Auto Loader from UC Volume
 │
 ├── silver-layer/
 │   └── transformations/
 │       ├── silver_postgresql.py        # 8 MVs — cleaned, validated, deduped
-│       └── silver_landing_zone.py      # 4 streaming tables — watermark dedup
+│       └── silver_landing_zone.py      # 12 streaming tables — 141 DQ expectations
 │
 ├── gold-layer/
 │   └── transformations/
 │       ├── gold_dimensions.py          # 5 dimension MVs (star schema)
 │       └── gold_facts.py              # 3 fact MVs (sales, ads, competitors)
 │
-└── sources/
-    ├── csv/                            # 6 generators (ad_spend, pricing, settlements...)
-    ├── json/                           # 4 generators (exchange_rates, clickstream...)
-    ├── parquet/                        # 2 generators (segmentation, forecasts)
-    └── run_all_generators.py           # Orchestrates all 12 generators
+└── monitoring/
+    └── pipeline_health_monitor.py      # Post-pipeline DQ checks, freshness, alerting
 ```
 
 ---
 
 ## 🔄 Pipeline Orchestration
 
-The orchestration job chains three Spark Declarative Pipelines sequentially:
+The orchestration job chains three Spark Declarative Pipelines sequentially, followed by a health monitor:
 
 ```
-┌───────────────────┐     ┌────────────────────────┐     ┌──────────────────┐
-│ bronze_ingestion  │────►│ silver_transformation  │────►│ gold_aggregation │
-│ (12 tables)       │     │ (12 tables, 65+ rules) │     │ (8 tables)       │
-└───────────────────┘     └────────────────────────┘     └──────────────────┘
+┌───────────────────┐     ┌────────────────────────┐     ┌──────────────────┐     ┌─────────────────────┐
+│ bronze_ingestion  │────►│ silver_transformation  │────►│ gold_aggregation │────►│ pipeline_monitoring │
+│ (20 tables)       │     │ (20 tables, 141 rules) │     │ (8 tables)       │     │ (health checks)     │
+└───────────────────┘     └────────────────────────┘     └──────────────────┘     └─────────────────────┘
 ```
 
 **Schedule:** Daily at 6:00 AM UTC  
-**Failure Alerts:** Email notification on failure
+**Failure Alerts:** Email notification on failure  
+**Health Monitor:** DQ violations, data freshness, row counts, filter rate analysis
 
 ---
 
 ## ✅ Data Quality
 
-The Silver layer enforces **65+ data quality expectations** across all 12 tables:
+The Silver layer enforces **141 data quality expectations** across all 20 tables:
 
 | Category | Examples |
 | --- | --- |
@@ -168,10 +171,12 @@ The Silver layer enforces **65+ data quality expectations** across all 12 tables
 | **Date Ranges** | No future dates, no dates before 2020 |
 | **Foreign Keys** | `customer_id`, `store_id`, `product_id` existence checks |
 | **Business Logic** | `total_amount ≈ quantity × unit_price - discount` (5% tolerance) |
-| **Financial** | `net_amount ≈ amount - gateway_fee` (0.02 tolerance) |
-| **Enum Validation** | Order status, payment status validated against known values |
+| **Financial** | `net_amount ≈ amount - gateway_fee` (0.02 tolerance), VAT 15% validation |
+| **Enum Validation** | Order status, payment status, carrier, sentiment validated against known values |
 | **Streaming Dedup** | `dropDuplicatesWithinWatermark` for landing zone tables |
 | **Malformed Data** | `_rescued_data` filtering for Auto Loader sources |
+| **Bot Filtering** | Clickstream and social media bot traffic detection |
+| **Range Checks** | RFM scores 1-5, churn probability 0-1, MAPE 0-1, weight ≤ 50kg |
 
 ---
 
@@ -243,6 +248,7 @@ The **Salla E-Commerce — Pipeline Observatory** dashboard provides real-time a
 - Payment method analysis (Card vs BNPL vs Digital Wallet)
 - Advertising ROAS and campaign effectiveness
 - Competitor pricing intelligence
+- Data quality pass rates and pipeline operations monitoring
 
 ---
 
@@ -284,12 +290,14 @@ databricks bundle destroy --target dev
 
 | Metric | Value |
 | --- | --- |
-| **Total Records Processed** | ~5.3M across all layers |
+| **Total Records Processed** | ~15.6M across all layers |
+| **Bronze Tables** | 20 (8 PostgreSQL + 12 file-based) |
+| **Silver Tables** | 20 (141 data quality expectations) |
+| **Gold Tables** | 8 (5 dimensions + 3 facts) |
+| **Data Sources** | 20 (PostgreSQL, CSV, JSON, Parquet) |
+| **Data Quality Rules** | 141 expectations |
 | **Fact Table Size** | 1,411,696 sales transactions |
-| **Data Sources** | 2 (PostgreSQL + Landing Zone files) |
-| **Source Tables** | 12 (8 JDBC + 4 file-based) |
-| **Data Quality Rules** | 65+ expectations |
-| **Pipeline Tables** | 32 (12 Bronze + 12 Silver + 8 Gold) |
+| **Pipeline Runtime** | ~5 minutes (Bronze → Silver → Gold → Monitoring) |
 | **Dimensions** | 5 (date, customers, products, stores, payment method) |
 | **Facts** | 3 (sales, ad spend, competitor pricing) |
 
