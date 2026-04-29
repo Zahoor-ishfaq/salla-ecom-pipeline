@@ -78,7 +78,9 @@ resources:
       continuous: false
       libraries:
         - notebook:
-            path: ./gold-layer/transformations/gold_aggregations.py
+            path: ./gold-layer/transformations/gold_dimensions.py
+        - notebook:
+            path: ./gold-layer/transformations/gold_facts.py
       configuration:
         "pipeline.silver_schema": "${var.catalog}.${var.silver_schema}"
 
@@ -109,6 +111,14 @@ resources:
           pipeline_task:
             pipeline_id: ${resources.pipelines.gold_pipeline.id}
             full_refresh: false
+
+        # ── Post-Pipeline Health Monitor ──────────────────────────────
+        - task_key: pipeline_monitoring
+          depends_on:
+            - task_key: gold_aggregation
+          notebook_task:
+            notebook_path: ./monitoring/pipeline_health_monitor.py
+            source: WORKSPACE
 
 # ---------------------------------------------------------------------------
 # Targets — environment-specific overrides

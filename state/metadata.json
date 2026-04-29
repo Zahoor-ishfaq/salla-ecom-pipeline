@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "config": {
+    "bundle": {
+      "name": "salla-ecommerce-pipeline",
+      "target": "dev",
+      "mode": "development",
+      "git": {
+        "branch": "main",
+        "origin_url": "https://github.com/Zahoor-ishfaq/salla-ecom-pipeline",
+        "commit": "ba5eff6c935b9ae44379f18a98cda67b02b6de63",
+        "bundle_root_path": "."
+      }
+    },
+    "workspace": {
+      "file_path": "/Workspace/Users/zahoorishfaq@outlook.com/Salla-datapipeline/files"
+    },
+    "resources": {
+      "jobs": {
+        "salla_orchestration": {
+          "id": "962375533153504",
+          "relative_path": "databricks.yml"
+        }
+      },
+      "pipelines": {
+        "bronze_pipeline": {
+          "id": "cd8c7c88-a926-47e5-9580-f1934c44a037",
+          "relative_path": "databricks.yml"
+        },
+        "gold_pipeline": {
+          "id": "62279bb1-c0a1-4670-ad61-0e07b1184d71",
+          "relative_path": "databricks.yml"
+        },
+        "silver_pipeline": {
+          "id": "f5c1e5c9-8cc9-4c57-87fc-e0b40ba53803",
+          "relative_path": "databricks.yml"
+        }
+      }
+    },
+    "presets": {
+      "source_linked_deployment": false
+    }
+  },
+  "extra": {}
+}

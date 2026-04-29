@@ -1,3 +1,4 @@
+# Databricks notebook source
 # ============================================================================
 # Gold Layer — Fact Tables (3 MVs)
 # ============================================================================
@@ -8,6 +9,7 @@
 #   ✓ Star schema joins with dimension surrogate keys
 #   ✓ Business metrics: estimated_profit, CTR, cost_per_conversion
 #   ✓ Competitive intelligence: price_diff_sar, competitive_position
+#   ✓ COALESCE for orphaned FKs → Unknown member (Kimball methodology)
 # ============================================================================
 
 from pyspark import pipelines as dp
@@ -20,6 +22,9 @@ from pyspark.sql.functions import (
 _spark = SparkSession.builder.getOrCreate()
 SILVER = _spark.conf.get("pipeline.silver_schema", "salla_databricks.silver")
 GOLD = _spark.conf.get("pipeline.gold_schema", "salla_databricks.gold")
+
+# Must match the key used in dim_customers Unknown member row
+UNKNOWN_CUSTOMER_KEY = md5(lit("UNKNOWN_CUSTOMER"))
 
 
 def _read_silver(t: str):
@@ -34,6 +39,7 @@ def _read_gold(t: str):
 
 # ══════════════════════════════════════════════════════════════════════════
 # 1. FACT_SALES — Core sales fact (orders + payments + shipping + all dims)
+#    COALESCE ensures no NULL dimension keys (orphans → Unknown member)
 # ══════════════════════════════════════════════════════════════════════════
 @dp.materialized_view(
     name="fact_sales",
@@ -79,7 +85,10 @@ def fact_sales():
         )
         .select(
             md5(col("order_id").cast("string")).alias("fact_sales_key"),
-            col("date_key"), col("customer_key"), col("product_key"),
+            col("date_key"),
+            # COALESCE: orphaned customers → Unknown member key
+            coalesce(col("customer_key"), UNKNOWN_CUSTOMER_KEY).alias("customer_key"),
+            col("product_key"),
             col("store_key"), col("payment_method_key"), col("order_id"),
             col("quantity"), col("order_status"), col("carrier"),
             col("payment_method"), col("shipping_status"),
@@ -180,8 +189,8 @@ def fact_competitor_pricing():
             round(
                 ((col("current_price") - col("our_unit_price")) / col("our_unit_price")) * 100, 2
             ).alias("price_diff_pct"),
-            when(col("current_price") < col("our_unit_price"), lit("We are more expensive"))
-            .when(col("current_price") > col("our_unit_price"), lit("We are cheaper"))
+            when(col("current_price") < col("our_unit_price") * 0.95, lit("We are more expensive"))
+            .when(col("current_price") > col("our_unit_price") * 1.05, lit("We are cheaper"))
             .otherwise(lit("Same price"))
             .alias("competitive_position"),
             current_timestamp().alias("_gold_timestamp"),

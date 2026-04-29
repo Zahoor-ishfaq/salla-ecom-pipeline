@@ -1,3 +1,4 @@
+# Databricks notebook source
 # ============================================================================
 # Gold Layer — Dimension Tables (5 MVs)
 # ============================================================================
@@ -8,6 +9,8 @@
 #   ✓ Surrogate keys via md5() for star schema joins
 #   ✓ Business enrichment (price_tier, region_zone, stock_status, is_bnpl)
 #   ✓ Dimensional modeling aligned with business logic
+#   ✓ Unknown member rows per Kimball methodology (handles orphaned facts)
+#   ✓ dim_date capped at current_date() — no future dates in BI tools
 # ============================================================================
 
 from pyspark import pipelines as dp
@@ -19,6 +22,8 @@ from pyspark.sql.functions import (
 _spark = SparkSession.builder.getOrCreate()
 SILVER = _spark.conf.get("pipeline.silver_schema", "salla_databricks.silver")
 
+UNKNOWN_CUSTOMER_KEY = md5(lit("UNKNOWN_CUSTOMER"))
+
 
 def _read_silver(t: str):
     """Read a Silver table. Usage: _read_silver('customers') → {SILVER}.silver_customers"""
@@ -26,11 +31,11 @@ def _read_silver(t: str):
 
 
 # ══════════════════════════════════════════════════════════════════════════
-# 1. DIM_DATE — Generated date dimension with fiscal year & weekend flags
+# 1. DIM_DATE — Generated date dimension (capped at current_date())
 # ══════════════════════════════════════════════════════════════════════════
 @dp.materialized_view(
     name="dim_date",
-    comment="Date dimension with fiscal year, Saudi weekend flags, and BI slicing attributes",
+    comment="Date dimension with fiscal year, Saudi weekend flags, and BI slicing attributes. Capped at current_date().",
 )
 @dp.expect("valid_date_key", "date_key IS NOT NULL")
 @dp.expect("valid_full_date", "full_date IS NOT NULL")
@@ -39,7 +44,7 @@ def dim_date():
         WITH date_range AS (
             SELECT
                 date_add(MIN(to_date(order_date)), -30)  AS min_d,
-                date_add(MAX(to_date(order_date)), 730)  AS max_d
+                current_date()                           AS max_d
             FROM {SILVER}.silver_sales_orders
         ),
         dates AS (
@@ -75,12 +80,12 @@ def dim_date():
 # ══════════════════════════════════════════════════════════════════════════
 @dp.materialized_view(
     name="dim_customers",
-    comment="Customer dimension with region zones for BI grouping",
+    comment="Customer dimension with region zones for BI grouping. Includes Unknown member for orphaned facts.",
 )
 @dp.expect("valid_customer_key", "customer_key IS NOT NULL")
 @dp.expect("valid_customer_id", "customer_id IS NOT NULL")
 def dim_customers():
-    return (
+    real_customers = (
         _read_silver("customers")
         .select(
             md5(col("customer_id")).alias("customer_key"),
@@ -105,6 +110,23 @@ def dim_customers():
         )
         .dropDuplicates(["customer_id"])
     )
+
+    unknown_member = _spark.sql("""
+        SELECT
+            md5('UNKNOWN_CUSTOMER')   AS customer_key,
+            'UNKNOWN'                 AS customer_id,
+            'Unknown Customer'        AS customer_name,
+            'N/A'                     AS email,
+            'N/A'                     AS phone,
+            'Unknown'                 AS city,
+            'Unknown'                 AS region,
+            'Unknown'                 AS region_zone,
+            current_timestamp()       AS customer_since,
+            current_timestamp()       AS last_updated,
+            current_timestamp()       AS _gold_timestamp
+    """)
+
+    return real_customers.unionByName(unknown_member)
 
 
 # ══════════════════════════════════════════════════════════════════════════

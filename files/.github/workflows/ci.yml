@@ -1,0 +1,47 @@
+# ============================================================================
+# Salla E-Commerce Pipeline — CI Validation
+# ============================================================================
+# Runs on every pull request to validate the Databricks Asset Bundle.
+# Ensures bundle syntax is correct before merging.
+# ============================================================================
+
+name: "CI — Validate Bundle"
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'databricks.yml'
+      - 'bronze-layer/**'
+      - 'silver-layer/**'
+      - 'gold-layer/**'
+      - 'sources/**'
+
+permissions:
+  id-token: write   # Required for OIDC authentication
+  contents: read
+
+jobs:
+  validate:
+    name: Validate Bundle
+    runs-on: ubuntu-latest
+    environment: dev
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Databricks CLI
+        uses: databricks/setup-cli@main
+
+      - name: Validate bundle (dev)
+        run: databricks bundle validate --target dev
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+
+      - name: Validate bundle (prod)
+        run: databricks bundle validate --target prod
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
