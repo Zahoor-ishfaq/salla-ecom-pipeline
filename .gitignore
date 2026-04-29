@@ -22,3 +22,9 @@ Thumbs.db
 # Temporary / generated
 *.tmp
 *.log
+
+files/
+.bundle/
+state/
+__pycache__/
+*.pyc
