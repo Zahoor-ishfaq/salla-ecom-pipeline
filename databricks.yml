@@ -35,8 +35,9 @@ workspace:
 # ---------------------------------------------------------------------------
 resources:
 
-  # ── Bronze Pipeline ────────────────────────────────────────────────────
   pipelines:
+
+    # ── Bronze Pipeline ──────────────────────────────────────────────────
     bronze_pipeline:
       name: Salla_Bronze_Pipeline
       catalog: ${var.catalog}
@@ -52,7 +53,7 @@ resources:
       configuration:
         "spark.hadoop.fs.azure.account.key.salaborationstorage.dfs.core.windows.net": "{{secrets/databricks-secrets/adls-storage-key}}"
 
-  # ── Silver Pipeline ────────────────────────────────────────────────────
+    # ── Silver Pipeline ──────────────────────────────────────────────────
     silver_pipeline:
       name: Salla_Silver_Pipeline
       catalog: ${var.catalog}
@@ -68,7 +69,7 @@ resources:
       configuration:
         "pipeline.bronze_schema": "${var.catalog}.${var.bronze_schema}"
 
-  # ── Gold Pipeline ──────────────────────────────────────────────────────
+    # ── Gold Pipeline ────────────────────────────────────────────────────
     gold_pipeline:
       name: Salla_Gold_Pipeline
       catalog: ${var.catalog}
@@ -78,12 +79,16 @@ resources:
       continuous: false
       libraries:
         - notebook:
-            path: ./gold-layer/transformations/gold_aggregations.py
+            path: ./gold-layer/transformations/gold_dimensions.py
+        - notebook:
+            path: ./gold-layer/transformations/gold_facts.py
       configuration:
         "pipeline.silver_schema": "${var.catalog}.${var.silver_schema}"
+        "pipeline.gold_schema": "${var.catalog}.${var.gold_schema}"
 
-  # ── Orchestration Job ──────────────────────────────────────────────────
   jobs:
+
+    # ── Orchestration Job ────────────────────────────────────────────────
     salla_orchestration:
       name: Salla E-Commerce Pipeline Orchestration
       schedule:
@@ -110,6 +115,23 @@ resources:
             pipeline_id: ${resources.pipelines.gold_pipeline.id}
             full_refresh: false
 
+        - task_key: pipeline_health_monitor
+          depends_on:
+            - task_key: gold_aggregation
+          notebook_task:
+            notebook_path: ./monitoring/pipeline_health_monitor.py
+            source: WORKSPACE
+          job_cluster_key: monitor_cluster
+
+      job_clusters:
+        - job_cluster_key: monitor_cluster
+          new_cluster:
+            spark_version: 15.4.x-scala2.12
+            node_type_id: Standard_DS3_v2
+            num_workers: 0
+            spark_conf:
+              spark.master: local[*, 4]
+
 # ---------------------------------------------------------------------------
 # Targets — environment-specific overrides
 # ---------------------------------------------------------------------------
@@ -127,6 +149,3 @@ targets:
     variables:
       catalog: salla_databricks
       schedule_pause_status: UNPAUSED
-    # In production, override with a prod catalog:
-    # variables:
-    #   catalog: salla_prod
