@@ -2,9 +2,6 @@
 
 A production-grade end-to-end data engineering pipeline built on **Azure Databricks** using **Medallion Architecture** (Bronze → Silver → Gold). Ingests data from multiple sources, transforms it through three quality layers, and serves a Kimball star schema for BI analytics via Power BI.
 
-![CD](https://github.com/zahoor-isfhaq/salla-ecom-pipeline/actions/workflows/deploy.yml/badge.svg)
-![CI](https://github.com/zahoor-isfhaq/salla-ecom-pipeline/actions/workflows/ci.yml/badge.svg)
-
 ---
 
 ## Tech Stack
