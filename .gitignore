@@ -24,7 +24,7 @@ Thumbs.db
 *.log
 
 files/
-.bundle/
 state/
-__pycache__/
-*.pyc
+data_generation/
+
+
