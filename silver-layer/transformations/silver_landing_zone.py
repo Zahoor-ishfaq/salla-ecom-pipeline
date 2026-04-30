@@ -1,4 +1,3 @@
-# Databricks notebook source
 # ============================================================================
 # Silver Layer — Landing Zone Transformations (4 Streaming Tables)
 # ============================================================================

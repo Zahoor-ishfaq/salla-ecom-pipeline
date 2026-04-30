@@ -1,4 +1,3 @@
-# Databricks notebook source
 # ============================================================
 # Bronze Layer — Landing Zone Ingestion (4 Streaming Tables)
 # ============================================================

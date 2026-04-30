@@ -1,4 +1,3 @@
-# Databricks notebook source
 # ============================================================
 # Bronze Layer — PostgreSQL Ingestion (8 Materialized Views)
 # ============================================================
