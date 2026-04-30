@@ -47,9 +47,9 @@ resources:
       continuous: false
       libraries:
         - notebook:
-            path: ./bronze-layer/transformations/bronze_postgresql
+            path: ./bronze-layer/transformations/bronze_postgresql.py
         - notebook:
-            path: ./bronze-layer/transformations/bronze_landing_zone
+            path: ./bronze-layer/transformations/bronze_landing_zone.py
       configuration:
         "spark.hadoop.fs.azure.account.key.salaborationstorage.dfs.core.windows.net": "{{secrets/databricks-secrets/adls-storage-key}}"
 
@@ -63,9 +63,9 @@ resources:
       continuous: false
       libraries:
         - notebook:
-            path: ./silver-layer/transformations/silver_postgresql
+            path: ./silver-layer/transformations/silver_postgresql.py
         - notebook:
-            path: ./silver-layer/transformations/silver_landing_zone
+            path: ./silver-layer/transformations/silver_landing_zone.py
       configuration:
         "pipeline.bronze_schema": "${var.catalog}.${var.bronze_schema}"
 
@@ -79,9 +79,9 @@ resources:
       continuous: false
       libraries:
         - notebook:
-            path: ./gold-layer/transformations/gold_dimensions
+            path: ./gold-layer/transformations/gold_dimensions.py
         - notebook:
-            path: ./gold-layer/transformations/gold_facts
+            path: ./gold-layer/transformations/gold_facts.py
       configuration:
         "pipeline.silver_schema": "${var.catalog}.${var.silver_schema}"
         "pipeline.gold_schema": "${var.catalog}.${var.gold_schema}"
