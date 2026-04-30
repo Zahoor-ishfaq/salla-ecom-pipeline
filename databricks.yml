@@ -99,21 +99,21 @@ resources:
         - task_key: bronze_ingestion
           pipeline_task:
             pipeline_id: ${resources.pipelines.bronze_pipeline.id}
-            full_refresh: false
+            full_refresh: true
 
         - task_key: silver_transformation
           depends_on:
             - task_key: bronze_ingestion
           pipeline_task:
             pipeline_id: ${resources.pipelines.silver_pipeline.id}
-            full_refresh: false
+            full_refresh: true
 
         - task_key: gold_aggregation
           depends_on:
             - task_key: silver_transformation
           pipeline_task:
             pipeline_id: ${resources.pipelines.gold_pipeline.id}
-            full_refresh: false
+            full_refresh: true
 
         - task_key: pipeline_health_monitor
           depends_on:
@@ -142,7 +142,6 @@ targets:
 
   dev:
     default: true
-    mode: development
     variables:
       catalog: salla_databricks
       schedule_pause_status: PAUSED
