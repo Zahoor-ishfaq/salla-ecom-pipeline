@@ -2,6 +2,9 @@
 
 A production-grade end-to-end data engineering pipeline built on **Azure Databricks** using **Medallion Architecture** (Bronze → Silver → Gold). Ingests data from multiple sources, transforms it through three quality layers, and serves a Kimball star schema for BI analytics via Power BI.
 
+![CD](https://github.com/zahoor-isfhaq/salla-ecom-pipeline/actions/workflows/deploy.yml/badge.svg)
+![CI](https://github.com/zahoor-isfhaq/salla-ecom-pipeline/actions/workflows/ci.yml/badge.svg)
+
 ---
 
 ## Tech Stack
@@ -56,9 +59,9 @@ A production-grade end-to-end data engineering pipeline built on **Azure Databri
 
 | Layer | Screenshot |
 |---|---|
-| Catalog overview (Bronze · Silver · Gold) | ![Catalog](docs/catalog.png) |
-| Gold layer — 5 dims + 3 facts | ![Gold](docs/gold_tables.png) |
-| Silver layer — 13 tables | ![Silver](docs/silver_tables.png) |
+| Catalog overview (Bronze · Silver · Gold) | <img width="156" height="124" alt="image" src="https://github.com/user-attachments/assets/da6aaee8-5c29-4920-aa58-7b20d8ef64e4" /> |
+| Gold layer — 5 dims + 3 facts | <img width="169" height="182" alt="image" src="https://github.com/user-attachments/assets/155654e8-8196-4feb-b07f-cfa647ed0b50" /> |
+| Silver layer — 13 tables | <img width="351" height="549" alt="image" src="https://github.com/user-attachments/assets/3d5f57a6-5e53-4f69-9889-e6364af1473d" /> |
 
 ---
 
@@ -72,7 +75,7 @@ A production-grade end-to-end data engineering pipeline built on **Azure Databri
 
 ## Azure Resources
 
-![Azure Resources](docs/azure_resources.png)
+<img width="1187" height="338" alt="image" src="https://github.com/user-attachments/assets/8ef688ad-c2f5-49ea-813e-9507d9db277a" />
 
 | Resource | Type |
 |---|---|
@@ -184,6 +187,12 @@ salla-ecom-pipeline/
 | `fact_competitor_pricing` | price_diff_sar, price_diff_pct, competitive_position |
 
 All Gold tables are Materialized Views. Surrogate keys use `md5()`. Orphaned FKs handled via `COALESCE` to Unknown member rows (Kimball methodology).
+
+### Star Schema (ERD)
+<img width="455" height="362" alt="ERD" src="https://github.com/user-attachments/assets/fe362878-633d-4314-ad3a-b0ba32bc0d57" />
+
+
+> Star schema with `fact_sales` as the central fact table connected to all 5 dimensions. `fact_ad_spend` and `fact_competitor_pricing` share `dim_date` and `dim_products` respectively.
 
 ---
 
@@ -306,8 +315,18 @@ salla_databricks (catalog)
 
 ---
 
+## ⚠️ Disclaimer
+
+All data used in this project is **synthetically generated** using custom Python scripts
+located in the `sources/` folder. No real customer, transaction, or business data was
+used at any point. The Salla brand name is used purely for portfolio demonstration
+purposes and has no affiliation with the actual Salla e-commerce platform.
+
+---
+
 ## Author
 
 **Zahoor Ishfaq**
 - GitHub: [zahoor-isfhaq](https://github.com/zahoor-isfhaq)
 - LinkedIn: [zahoor-isfhaq](https://linkedin.com/in/zahoor-isfhaq)
+- Email: [zahoor.ishfaaq@gmail.com](mailto:zahoor.ishfaaq@gmail.com)
