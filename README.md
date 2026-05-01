@@ -38,7 +38,8 @@ A production-grade end-to-end data engineering pipeline built on **Azure Databri
 
 ## Architecture
 
-<img width="2752" height="1458" alt="pipeline" src="https://github.com/user-attachments/assets/18ff98c8-5848-4ce3-a657-d3bb193febd5" />
+<img width="1701" height="925" alt="final archhitecture" src="https://github.com/user-attachments/assets/e327d952-76e0-422a-a302-59cf871fee43" />
+
 
 > **Data flow:** Multiple sources → Unity Catalog Landing Zone (ADLS Gen2) → Bronze (raw ingestion) → Silver (cleaned & validated) → Gold (star schema) → Power BI via Serverless SQL Warehouse. Orchestrated by Databricks Jobs, deployed via GitHub Actions → Databricks Asset Bundles.
 
@@ -186,7 +187,8 @@ salla-ecom-pipeline/
 All Gold tables are Materialized Views. Surrogate keys use `md5()`. Orphaned FKs handled via `COALESCE` to Unknown member rows (Kimball methodology).
 
 ### Star Schema (ERD)
-<img width="455" height="362" alt="ERD" src="https://github.com/user-attachments/assets/fe362878-633d-4314-ad3a-b0ba32bc0d57" />
+<img width="1536" height="1024" alt="ERD FINAL" src="https://github.com/user-attachments/assets/f5d347b1-8556-43cb-b6f9-94bc90ae15f4" />
+
 
 
 > Star schema with `fact_sales` as the central fact table connected to all 5 dimensions. `fact_ad_spend` and `fact_competitor_pricing` share `dim_date` and `dim_products` respectively.
